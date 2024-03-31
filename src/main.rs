@@ -1,4 +1,7 @@
-use std::{ops::{BitAnd, BitOr}, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    ops::{BitAnd, BitOr},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use mlua::prelude::*;
 mod lua_sources;
@@ -17,6 +20,12 @@ fn run() -> Result<(), LuaError> {
 
     let set_window_title = lua.create_function(|_, ()| -> LuaResult<()> { Ok(()) })?;
     lua.globals().set("SetWindowTitle", set_window_title)?;
+
+    // let show_error_message = lua.create_function(|_, val: LuaValue| -> LuaResult<()> {
+    //     eprintln!("show_error_message: {:#?}", val);
+    //     Ok(())
+    // })?;
+    // lua.globals().get::<_, LuaTable>("launch").unwrap().set("ShowErrMsg", show_error_message)?;
 
     let bit = lua.create_table()?;
     bit.set(
@@ -64,167 +73,46 @@ fn run() -> Result<(), LuaError> {
     })?;
     lua.globals().set("require", require)?;
 
-    let pload_module = lua.create_function(|lua, module: LuaString| -> LuaResult<LuaTable> {
-        let source = match module.to_str()? {
-            "Modules/Main" => include_str!("../PathOfBuilding/src/Modules/Main.lua"),
-            _ => unimplemented!("{} is not yet implemented", module.to_str()?),
-        };
-
-        let chunk = lua.load(source);
-        let module_function = chunk.into_function().unwrap();
-        let module_table: LuaTable = module_function.call(()).unwrap();
-        Ok(module_table)
-    })?;
-    lua.globals().set("PLoadModule", pload_module)?;
-
-    let load_module = lua.create_function(
-        |lua, (module, lmv): (LuaString, LuaMultiValue)| -> LuaResult<Option<LuaValue>> {
+    let pload_module =
+        lua.create_function(|lua, module: LuaString| -> LuaResult<LuaMultiValue> {
             let source = match module.to_str()? {
                 "Modules/Main" => include_str!("../PathOfBuilding/src/Modules/Main.lua"),
-                "GameVersions" => {
-                    include_str!("../PathOfBuilding/src/GameVersions.lua")
-                }
-                "Modules/Common" => include_str!("../PathOfBuilding/src/Modules/Common.lua"),
-                "Modules/Data" => include_str!("../PathOfBuilding/src/Modules/Data.lua"),
-                "Modules/ModTools" => include_str!("../PathOfBuilding/src/Modules/ModTools.lua"),
-                "Modules/ItemTools" => include_str!("../PathOfBuilding/src/Modules/ItemTools.lua"),
-                "Modules/CalcTools" => include_str!("../PathOfBuilding/src/Modules/CalcTools.lua"),
-                "Modules/PantheonTools" => {
-                    include_str!("../PathOfBuilding/src/Modules/PantheonTools.lua")
-                }
-                "Modules/BuildSiteTools" => {
-                    include_str!("../PathOfBuilding/src/Modules/BuildSiteTools.lua")
-                }
-                "Modules/StatDescriber" => {
-                    include_str!("../PathOfBuilding/src/Modules/StatDescriber.lua")
-                }
-                "Data/Global" => {
-                    include_str!("../PathOfBuilding/src/Data/Global.lua")
-                }
-                "Data/Misc" => {
-                    include_str!("../PathOfBuilding/src/Data/Misc.lua")
-                }
-                "Data/ModItem" => {
-                    include_str!("../PathOfBuilding/src/Data/ModItem.lua")
-                }
-                "Data/ModFlask" => {
-                    include_str!("../PathOfBuilding/src/Data/ModFlask.lua")
-                }
-                "Data/ModTincture" => {
-                    include_str!("../PathOfBuilding/src/Data/ModTincture.lua")
-                }
-                "Data/ModJewel" => {
-                    include_str!("../PathOfBuilding/src/Data/ModJewel.lua")
-                }
-                "Data/ModJewelAbyss" => {
-                    include_str!("../PathOfBuilding/src/Data/ModJewelAbyss.lua")
-                }
-                "Data/ModJewelCluster" => {
-                    include_str!("../PathOfBuilding/src/Data/ModJewelCluster.lua")
-                }
-                "Data/ModJewelCharm" => {
-                    include_str!("../PathOfBuilding/src/Data/ModJewelCharm.lua")
-                }
-                "Data/ModMaster" => {
-                    include_str!("../PathOfBuilding/src/Data/ModMaster.lua")
-                }
-                "Data/EnchantmentHelmet" => {
-                    include_str!("../PathOfBuilding/src/Data/EnchantmentHelmet.lua")
-                }
-                "Data/EnchantmentBoots" => {
-                    include_str!("../PathOfBuilding/src/Data/EnchantmentBoots.lua")
-                }
-                "Data/EnchantmentGloves" => {
-                    include_str!("../PathOfBuilding/src/Data/EnchantmentGloves.lua")
-                }
-                "Data/EnchantmentBelt" => {
-                    include_str!("../PathOfBuilding/src/Data/EnchantmentBelt.lua")
-                }
-                "Data/EnchantmentBody" => {
-                    include_str!("../PathOfBuilding/src/Data/EnchantmentBody.lua")
-                }
-                "Data/EnchantmentWeapon" => {
-                    include_str!("../PathOfBuilding/src/Data/EnchantmentWeapon.lua")
-                }
-                "Data/EnchantmentFlask" => {
-                    include_str!("../PathOfBuilding/src/Data/EnchantmentFlask.lua")
-                }
-
-                "Data/Essence" => {
-                    include_str!("../PathOfBuilding/src/Data/Essence.lua")
-                }
-                "Data/ModVeiled" => {
-                    include_str!("../PathOfBuilding/src/Data/ModVeiled.lua")
-                }
-                "Data/ModNecropolis" => {
-                    include_str!("../PathOfBuilding/src/Data/ModNecropolis.lua")
-                }
-                "Data/Crucible" => {
-                    include_str!("../PathOfBuilding/src/Data/Crucible.lua")
-                }
-                "Data/Pantheons" => {
-                    include_str!("../PathOfBuilding/src/Data/Pantheons.lua")
-                }
-                "Data/Costs" => {
-                    include_str!("../PathOfBuilding/src/Data/Costs.lua")
-                }
-                "Data/ModMap" => {
-                    include_str!("../PathOfBuilding/src/Data/ModMap.lua")
-                }
-                "Data/ClusterJewels" => {
-                    include_str!("../PathOfBuilding/src/Data/ClusterJewels.lua")
-                }
-                "Data/TimelessJewelData/LegionTradeIds" => {
-                    include_str!("../PathOfBuilding/src/Data/TimelessJewelData/LegionTradeIds.lua")
-                }
-                "Data/TimelessJewelData/NodeIndexMapping" => {
-                    include_str!("../PathOfBuilding/src/Data/TimelessJewelData/NodeIndexMapping.lua")
-                }
-                "Modules/DataLegionLookUpTableHelper" => {
-                    include_str!("../PathOfBuilding/src/Modules/DataLegionLookUpTableHelper.lua")
-                }
-                "Data/Bosses" => {
-                    include_str!("../PathOfBuilding/src/Data/Bosses.lua")
-                }
-                "Data/BossSkills" => {
-                    include_str!("../PathOfBuilding/src/Data/BossSkills.lua")
-                }
-                "Data/SkillStatMap" => {
-                    include_str!("../PathOfBuilding/src/Data/SkillStatMap.lua")
-                }
-                "Data/Skills/act_str" => {
-                    include_str!("../PathOfBuilding/src/Data/Skills/act_str.lua")
-                }
                 _ => unimplemented!("{} is not yet implemented", module.to_str()?),
             };
 
             let chunk = lua.load(source);
+            let module_function = chunk.into_function().unwrap();
+            let module_table: LuaTable = module_function.call(()).unwrap();
+            // nil means no error
+            Ok(lua.pack_multi((LuaNil, module_table)).unwrap())
+        })?;
+    lua.globals().set("PLoadModule", pload_module)?;
+
+    let pcall = lua.create_function(
+        |_, (func, todo_name_this): (LuaFunction, LuaTable)| -> LuaResult<()> {
+            func.call::<_, Option<LuaValue>>(todo_name_this).unwrap();
+            Ok(())
+        },
+    )?;
+    lua.globals().set("PCall", pcall)?;
+
+    lua.globals().set("arg", lua.create_table()?)?;
+    let load_module = lua.create_function(
+        |lua, (module, args): (LuaString, LuaMultiValue)| -> LuaResult<LuaMultiValue> {
+            let source = lua_sources::get_lua_source(module.to_str().unwrap());
+            dbg!(&module.to_str().unwrap(), &args.len());
+            let chunk = lua.load(source);
             let chunk = chunk.set_name(module.to_str().unwrap());
             let module_function = chunk.into_function().unwrap();
 
-            let module_results: Option<LuaTable> = match module_function.call(lmv.clone()) {
+            match module_function.call(args.clone()) {
                 Ok(module) => return Ok(module),
-                Err(e) => panic!("Failed to include module {}, error: {}", module.to_str().unwrap(), e),
+                Err(e) => panic!(
+                    "Failed to include module {}, error: {}",
+                    module.to_str().unwrap(),
+                    e
+                ),
             };
-            // let module_table: Option<LuaTable> = match module_function.call(lmv.clone()) {
-            //     Ok(x) => x,
-            //     Err(e) => {
-            //         let module_table: LuaResult<Option<LuaFunction>> =
-            //             module_function.call(lmv);
-            //             match module_table {
-            //                 Ok(Some(x)) => return Ok(Some(LuaValue::Function(x))),
-            //                 Ok(None) => unreachable!("more so curious if this is ever triggered"),
-            //                 Err(e) => panic!(""),
-            //             }
-            //         // panic!(
-            //         //     "Failed to import module {}: {}",
-            //         //     module.to_str().unwrap(),
-            //         //     e.to_string()
-            //         // );
-            //     }
-            // };
-
-            // Ok(module_table.map(|mt| LuaValue::Table(mt)))
         },
     )?;
     lua.globals().set("LoadModule", load_module)?;
@@ -242,32 +130,57 @@ fn run() -> Result<(), LuaError> {
     lua.globals().set("ConPrintf", con_printf)?;
 
     let set_main_object = lua
-        .create_function(|_, obj: mlua::Table| -> LuaResult<()> {
-            // state.inspect_stack(0).unwrap().stack().num_ups
-            // state.inspect_stack(0).unwrap().
-
-            // dbg!("It passed in a table", &obj);
+        .create_function(|lua, obj: mlua::Table| -> LuaResult<()> {
+            lua.globals().set("MainObject", obj).unwrap();
             Ok(())
         })
         .unwrap();
     lua.globals().set("SetMainObject", set_main_object)?;
 
+    lua.globals()
+        .set(
+            "GetScriptPath",
+            lua.create_function(|lua, ()| -> LuaResult<LuaString> { Ok(lua.create_string("")?) })
+                .unwrap(),
+        )
+        .unwrap();
+    
+    lua.globals()
+        .set(
+            "GetRuntimePath",
+            lua.create_function(|lua, ()| -> LuaResult<LuaString> { Ok(lua.create_string("")?) })
+                .unwrap(),
+        )
+        .unwrap();
+    lua.globals()
+    .set(
+        "MakeDir",
+        lua.create_function(|lua, path: LuaString| -> LuaResult<()> { 
+            drop(std::fs::create_dir(path.to_str().unwrap()));
+            Ok(())
+        })
+            .unwrap(),
+    )
+    .unwrap();
+    // launch: very ambitious
+
     let c = lua.load(
         include_str!("../PathOfBuilding/src/Launch.lua")
             .replace("#@ SimpleGraphic", "-- #@ SimpleGraphic"),
     );
-    c.exec()?;
 
-    // lua.globals()
-    //     .get::<_, LuaTable>("package")?
-    //     .get::<_, LuaTable>("preload")?
-    //     .set("xml", lua.create_table().unwrap())?;
+    c.set_name("launch.lua").exec()?;
 
     let launch: LuaTable = lua.globals().get("launch")?;
     let on_init: LuaFunction = launch.get("OnInit")?;
 
     let this = lua.create_table()?;
     on_init.call::<_, ()>(this)?;
+
+    // let headless = lua
+    //     .load(lua_sources::get_lua_source("HeadlessWrapper"))
+    //     .set_name("HeadlessWrapper.lua");
+    // headless.exec().unwrap();
 
     Ok(())
 }

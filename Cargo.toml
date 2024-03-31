@@ -7,7 +7,7 @@ edition = "2021"
 #crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-mlua = {version = "0.9.6", features=["lua54", "vendored", "async"]}
+mlua = {version = "0.9.6", features=["lua51", "vendored", "async"]}
 # winit = "0.28"
 env_logger = "0.10"
 log = "0.4"

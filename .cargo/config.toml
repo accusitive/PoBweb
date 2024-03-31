@@ -1,15 +1,13 @@
 [target.wasm32-unknown-emscripten]
 rustflags = [
-    #"-C",
-    #"link-arg=-lnodefs.js",
-    #"-C",
-    #"link-arg=-lnoderawfs.js",
-    "-C",
-    "link-arg=-sALLOW_MEMORY_GROWTH",
+    # "-C",
+    # "link-arg=-sALLOW_MEMORY_GROWTH",
     "-C",
     "link-arg=-sASYNCIFY",
-    #"-C",
-    #"link-arg=-sEXIT_RUNTIME=1",
+    "-C",
+    "link-arg=-sINITIAL_MEMORY=262144000",
+      "-C",
+    "link-arg=-MAXIMUM_MEMORY=262144000",
 ]
 runner = "node"
 
