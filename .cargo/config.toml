@@ -15,4 +15,4 @@ runner = "node"
 
 [env]
 #EMCC_STRICT="1"
-RUST_BACKTRACE="1"
+# RUST_BACKTRACE="1"

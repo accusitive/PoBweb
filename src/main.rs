@@ -1,4 +1,8 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    fs::File,
+    io::{self, Read, Write},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use mlua::{ffi::lua, prelude::*};
 use quick_xml::{events::Event, Reader};
@@ -20,66 +24,102 @@ fn run() -> Result<(), LuaError> {
     lua.globals().set("SetWindowTitle", set_window_title)?;
 
     let require = lua.create_function(|lua, module: LuaString| -> LuaResult<LuaTable> {
-        let output = lua.create_table()?;
-        match module.to_str()? {
-            "xml" => {
-                let load_xml_file =
-                    lua.create_function(|lua, file: LuaString| -> LuaResult<LuaTable> {
-                        // let source = match file.to_str()? {
-                        //     "manifest.xml" | "../manifest.xml" => include_str!("../PathOfBuilding/manifest.xml"),
-                        //     _ => unimplemented!()
-                        // };
+        let source = match module.to_str()? {
+            "xml" => include_str!("../PathOfBuilding/runtime/lua/xml.lua"),
+            "base64" => include_str!("../PathOfBuilding/runtime/lua/base64.lua"),
+            "sha1" => include_str!("../PathOfBuilding/runtime/lua/sha1/init.lua"),
+            "sha1.common" => include_str!("../PathOfBuilding/runtime/lua/sha1/common.lua"),
 
-                        let source = r#"<test> <test2><test3/></test2> </test>"#;
-                        // dbg!(&source);
-                        let table = lua.create_table()?;
-                        let mut reader = Reader::from_str(source);
-                        reader.trim_text(false);
+            _ => unimplemented!("{} is not yet implemented", module.to_str()?),
+        };
 
-                        // lua indexes from 1 :/
-                        let mut count = 1;
-                        // let mut txt = Vec::new();
-                        let mut buf = Vec::new();
-                        loop {
-                            // dbg!(&reader.buffer_position(), &reader.get_ref().len());
-                            match reader.read_event_into(&mut buf) {
-                                Err(e) => panic!(
-                                    "Error at position {}: {:?}",
-                                    reader.buffer_position(),
-                                    e
-                                ),
-                                Ok(Event::Empty(e)) => {
-                                    println!("Empty !?");
-                                }
-                                Ok(Event::Start(e)) => {
-                                    println!(
-                                        "Started element {:?}",
-                                        std::str::from_utf8(e.name().as_ref()).unwrap()
-                                    );
-                                }
-                                Ok(Event::Eof) => {
-                                    dbg!(&"eof");
-                                    break;
-                                }
-
-                                _ => (),
-                            }
-                            buf.clear();
-                        }
-                        println!("Finished gracefully");
-                        dbg!(&table);
-                        Ok(table)
-                    })?;
-                output.set("LoadXMLFile", load_xml_file)?;
-            }
-            _ => unimplemented!(),
-        }
-        Ok(output)
+        let chunk = lua.load(source);
+        let func = chunk.into_function().unwrap();
+        let table: LuaTable = func.call(()).unwrap();
+        Ok(table)
     })?;
     lua.globals().set("require", require)?;
 
+    let pload_module = lua.create_function(|lua, module: LuaString| -> LuaResult<LuaTable> {
+        let source = match module.to_str()? {
+            "Modules/Main" => include_str!("../PathOfBuilding/src/Modules/Main.lua"),
+            _ => unimplemented!("{} is not yet implemented", module.to_str()?),
+        };
+
+        let chunk = lua.load(source);
+        let module_function = chunk.into_function().unwrap();
+        let module_table: LuaTable = module_function.call(()).unwrap();
+        Ok(module_table)
+    })?;
+    lua.globals().set("PLoadModule", pload_module)?;
+
+    let load_module =
+        lua.create_function(|lua, module: LuaString| -> LuaResult<Option<LuaTable>> {
+            let source = match module.to_str()? {
+                "Modules/Main" => include_str!("../PathOfBuilding/src/Modules/Main.lua"),
+                /*
+                            LoadModule("GameVersions")
+                LoadModule("Modules/Common")
+                LoadModule("Modules/Data")
+                LoadModule("Modules/ModTools")
+                LoadModule("Modules/ItemTools")
+                LoadModule("Modules/CalcTools")
+                LoadModule("Modules/PantheonTools")
+                LoadModule("Modules/BuildSiteTools")
+                 */
+                "GameVersions" => {
+                    include_str!("../PathOfBuilding/src/GameVersions.lua")
+                }
+                "Modules/Common" => include_str!("../PathOfBuilding/src/Modules/Common.lua"),
+                "Modules/Data" => include_str!("../PathOfBuilding/src/Modules/Data.lua"),
+                "Modules/ModTools" => include_str!("../PathOfBuilding/src/Modules/ModTools.lua"),
+                "Modules/ItemTools" => include_str!("../PathOfBuilding/src/Modules/ItemTools.lua"),
+                "Modules/CalcTools" => include_str!("../PathOfBuilding/src/Modules/CalcTools.lua"),
+                "Modules/PantheonTools" => {
+                    include_str!("../PathOfBuilding/src/Modules/PantheonTools.lua")
+                }
+                "Modules/BuildSiteTools" => {
+                    include_str!("../PathOfBuilding/src/Modules/BuildSiteTools.lua")
+                }
+                _ => unimplemented!("{} is not yet implemented", module.to_str()?),
+            };
+
+            let chunk = lua.load(source);
+            let chunk = chunk.set_name(module.to_str().unwrap());
+            let module_function = chunk.into_function().unwrap();
+            let module_table: Option<LuaTable> = module_function
+                .call(())
+                .expect(&format!("Failed to load module {}", module.to_str()?));
+            Ok(module_table)
+        })?;
+    lua.globals().set("LoadModule", load_module)?;
+
     let con_execute = lua.create_function(|_, ()| -> LuaResult<()> { Ok(()) })?;
     lua.globals().set("ConExecute", con_execute)?;
+
+    let render_init = lua.create_function(|_, ()| -> LuaResult<()> { Ok(()) })?;
+    lua.globals().set("RenderInit", render_init)?;
+
+    let con_printf = lua.create_function(|_, val: LuaValue| -> LuaResult<()> {
+        println!("con_printf: {:#?}", val);
+        Ok(())
+    })?;
+    lua.globals().set("ConPrintf", con_printf)?;
+
+    let bit = lua.create_table()?;
+    bit.set(
+        "rshift",
+        lua.create_function(|_, (x, y): (i32, i32)| -> LuaResult<i32> { Ok(x >> y) })?,
+    )?;
+    bit.set(
+        "band",
+        lua.create_function(|_, (x, y): (i32, i32)| -> LuaResult<i32> { Ok(x & y) })?,
+    )?;
+    bit.set(
+        "bxor",
+        lua.create_function(|_, (x, y): (i32, i32)| -> LuaResult<i32> { Ok(x ^ y) })?,
+    )?;
+    lua.globals().set("bit", bit)?;
 
     let set_main_object = lua
         .create_function(|state, obj: mlua::Table| -> LuaResult<()> {
@@ -98,10 +138,10 @@ fn run() -> Result<(), LuaError> {
     );
     c.exec()?;
 
-    lua.globals()
-        .get::<_, LuaTable>("package")?
-        .get::<_, LuaTable>("preload")?
-        .set("xml", lua.create_table().unwrap())?;
+    // lua.globals()
+    //     .get::<_, LuaTable>("package")?
+    //     .get::<_, LuaTable>("preload")?
+    //     .set("xml", lua.create_table().unwrap())?;
 
     let launch: LuaTable = lua.globals().get("launch")?;
     let on_init: LuaFunction = launch.get("OnInit")?;
@@ -110,8 +150,21 @@ fn run() -> Result<(), LuaError> {
     on_init.call::<_, ()>(this)?;
     Ok(())
 }
+fn test_fs() -> io::Result<()> {
+    let mut file = File::create("hello.txt")?;
+    file.write_all(b"hello world")?;
+    file.flush()?;
+    let mut file = File::open("hello.txt")?;
+    let mut content = String::new();
+    file.read_to_string(&mut content)?;
+    assert_eq!(content.trim(), "hello world");
+    println!("File content: {}", content);
+    Ok(())
+}
 fn main() {
     println!("Hello emscripten");
+
+    drop(test_fs());
     match run() {
         Ok(_) => println!("Ran and exited successfully"),
         Err(LuaError::RuntimeError(e)) => println!("Runtime Error: {}", e.replace("\\\\n", "\n")),
